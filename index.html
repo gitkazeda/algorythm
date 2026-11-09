@@ -3,530 +3,186 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>トランプで学ぶ！並べ替え</title>
+<title>トランプで学ぶ！並べ替え（ソートアルゴリズム入門）</title>
 <style>
 :root{--ink:#1e293b;--muted:#64748b;--paper:#f4f8fc;--line:#d7e2ef;--blue:#2563eb;--green:#15803d;--orange:#c2410c;--purple:#7e22ce}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.65}
-header{background:linear-gradient(120deg,#172554,#1d4ed8);color:white;padding:25px 18px}.wrap{width:min(1100px,calc(100% - 28px));margin:auto}h1{font-size:clamp(1.7rem,4vw,2.5rem);margin:0 0 4px}header p{margin:0;color:#dbeafe}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:clamp(15px,2.5vw,24px);margin:18px 0;box-shadow:0 5px 18px #0f172a08}h2{font-size:1.25rem;margin:0 0 8px}h3{font-size:1rem;margin:0 0 6px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px}.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:.85rem;color:var(--muted);margin:8px 0}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:13px;height:13px;border-radius:4px;display:inline-block}.swatch.sorted{background:#dcfce7}.swatch.key{background:#ffedd5}.swatch.compare{background:#f3e8ff}.swatch.move{background:#dbeafe}
+header{background:linear-gradient(120deg,#172554,#1d4ed8);color:white;padding:25px 18px}.wrap{width:min(1100px,calc(100% - 28px));margin:auto}h1{font-size:clamp(1.7rem,4vw,2.5rem);margin:0 0 4px}header p{margin:0;color:#dbeafe}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:clamp(15px,2.5vw,24px);margin:18px 0;box-shadow:0 5px 18px #0f172a08}h2{font-size:1.25rem;margin:0 0 8px}h3{font-size:1rem;margin:0 0 6px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px}
 
-.board{display:flex;justify-content:center;align-items:flex-end;gap:clamp(6px,1.2vw,14px);min-height:180px;padding:28px 5px 10px;border-bottom:2px solid #cbd5e1;overflow:hidden}
-.slot{width:74px;position:relative;text-align:center;flex-shrink:0}
+/* アルゴリズム一覧用カードグリッド */
+.algo-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:14px;margin-top:14px}
+.algo-card{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s, box-shadow .2s}
+.algo-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px #0f172a08}
+.algo-card h3{margin-bottom:6px;color:var(--blue)}
+.algo-card p{font-size:.88rem;color:var(--muted);margin:0 0 14px}
 
-/* ==========================================
-   トランプカードの原形・サイズ完全固定（共通スタイル）
-   ========================================== */
-.playing-card{
-  height:110px !important;
-  width:72px !important;
-  min-width:72px !important;
-  max-width:72px !important;
-  border:2px solid #cbd5e1;
-  border-radius:9px;
-  background:#fff;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  padding:6px;
-  position:relative;
-  box-shadow:0 3px 5px #0f172a12;
-  transition:transform .3s ease, background .25s, border-color .25s;
-  backface-visibility:hidden;
-  flex-shrink:0;
-  margin:0 auto;
-}
-.card-top{align-self:flex-start;font-weight:900;font-size:1rem;line-height:1.05}
-.card-bottom{align-self:flex-end;font-size:1.5rem;line-height:1}
-.red{color:#dc2626}
-.black{color:#172033}
-.card-center{font-size:2rem;line-height:1;text-align:center}
+/* ニュース・更新情報 */
+.news-item{display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.news-item:last-child{border-bottom:none}
+.news-date{font-size:.82rem;font-weight:700;color:var(--muted);white-space:nowrap}
 
-.playing-card.back{
-  background:repeating-linear-gradient(45deg,#c72b39 0 4px,#fce7e9 4px 6px,#c72b39 6px 10px) !important;
-  border:4px double white !important;
-  outline:1px solid #b91c1c;
-}
-.playing-card.back .card-top, 
-.playing-card.back .card-center, 
-.playing-card.back .card-bottom{visibility:hidden !important}
+button,a.btn{font:inherit;border:1px solid #cbd5e1;border-radius:9px;padding:9px 13px;background:white;color:var(--ink);text-decoration:none;display:inline-block;text-align:center;font-weight:750;cursor:pointer}
+button:hover,a.btn:hover{background:#eff6ff}
+button.primary,a.btn.primary{background:var(--blue);color:white;border-color:var(--blue)}
+button.disabled,a.btn.disabled{opacity:.4;cursor:not-allowed;background:#f1f5f9;border-color:#e2e8f0;color:var(--muted)}
+button.disabled:hover,a.btn.disabled:hover{background:#f1f5f9}
 
-.playing-card.key{background:#ffedd5;border-color:#fb923c;box-shadow:0 0 0 3px #fed7aa;transform:translateY(-9px)}
-.playing-card.compare{background:#f3e8ff;border-color:#c084fc;box-shadow:0 0 0 2px #e9d5ff}
-.playing-card.move{background:#dbeafe;border-color:#60a5fa}
-.playing-card.sorted{background:#dcfce7;border-color:#86efac}
-.playing-card.ghost{opacity:.22;border-style:dashed}
-
-.slot .idx{font-size:.72rem;color:var(--muted);margin-top:6px}
-.slot .label{position:absolute;top:-24px;width:100%;font-size:.7rem;font-weight:800;white-space:nowrap}
-
-/* 一時置き場のコンテナ */
-.floating-key{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px;margin-top:12px}
-.floating-key.hidden{display:none}
-
-.status{margin-top:14px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-height:78px}
-.phase{color:var(--blue);font-weight:800;font-size:.8rem}
-.status p{margin:2px 0}
-.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
-button,select{font:inherit;border:1px solid #cbd5e1;border-radius:9px;padding:9px 13px;background:white;color:var(--ink)}
-button{font-weight:750;cursor:pointer}
-button:hover{background:#eff6ff}
-button.primary{background:var(--blue);color:white;border-color:var(--blue)}
-button:disabled{opacity:.4;cursor:not-allowed}
-.control-label{margin-left:auto;font-size:.88rem;color:var(--muted)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-.stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px}
-.stat small{display:block;color:var(--muted)}
-.stat strong{font-size:1.3rem}
-.track{height:7px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:6px}
-.fill{height:100%;background:var(--blue);width:0;transition:width .2s}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:15px}
-.code{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font: .9rem/1.8 ui-monospace,Consolas,monospace;overflow:auto;white-space:pre}
-.hl{color:#fbbf24;font-weight:800}
-
-/* トランプゲームセクション用スタイル */
-.activity-cards{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:16px 0}
-.activity-slot{width:80px;text-align:center;cursor:pointer;user-select:none}
-.activity-slot small{color:var(--muted);display:block;margin-top:4px}
-.activity-slot.selected .playing-card{box-shadow:0 0 0 4px #2563eb;transform:translateY(-6px)}
-.activity-status{background:#f8fafc;border-radius:10px;padding:12px;min-height:54px;margin-top:8px}
-
-.quiz-options{display:flex;flex-wrap:wrap;gap:8px}
-.quiz-options button{flex:1 1 210px;text-align:left}
-.feedback{min-height:26px;font-weight:700;margin-top:8px}
-.good{color:var(--green)}
-.bad{color:#b91c1c}
 footer{text-align:center;color:var(--muted);font-size:.85rem;padding:0 12px 24px}
 
 @media(max-width:720px){
-  .grid,.split{grid-template-columns:1fr}
-  .stats{gap:5px}.stat{padding:7px}
+  .wrap{width:calc(100% - 20px)}
+  header{padding:20px 10px}
+  .grid{grid-template-columns:1fr}
+  .panel{padding:14px;margin:12px 0;border-radius:13px}
+  .algo-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <div style="font-size:.8rem;letter-spacing:.12em;font-weight:800"> 情報 · 高校生向け</div>
+    <div style="font-size:.8rem;letter-spacing:.12em;font-weight:800">情報 · 高校生向け</div>
     <h1>トランプで学ぶ！並べ替え</h1>
-    <p>「挿入ソート」をトランプを使って学んでみよう．</p>
+    <p>身近なトランプカードを使って、コンピュータの「ソートアルゴリズム」を視覚的に楽しく学ぼう。</p>
   </div>
 </header>
+
+<main class="wrap">
+
+<!-- 使い方・機能紹介セクション -->
 <section class="panel grid">
-<div>
-  <h2>挿入ソートって何？</h2>
-  <p>左側を「小さい順に並んだ列」と考え、右側からカードを1枚取り出します。そのカードより大きいカードを右へずらし、空いた場所に取り出したカードを入れます。</p>
-  <ol>
-    <li>次に入れるカードを取り出す。</li>
-    <li>左側のカードと右から順に比べる。</li>
-    <li>大きいカードを1枚ずつ右へずらす。</li>
-    <li>空いた場所に取り出したカードを入れる。</li>
-  </ol>
-</div>
-<div class="note">
-  <h3>🃏 トランプのイメージ</h3>
-  <p>手元のカードを小さい順に持っているとき、新しいカードを受け取ったらどうしますか？</p>
-  <p><strong>大きいカードを右へよけて、空いた場所に差し込みます．</strong>これが挿入ソートです！</p>
-  <p class="muted">体操やスキーなどの一部の個人スポーツ競技やカラオケ番組を想像してみるとわかりやすいです．</p>
-</div>
-</section>
-
-<section class="panel">
-  <h2>① アニメーションで動きを観察</h2>
-  <p class="muted">「次へ」で1つずつ操作。青いカードが右へ移動し、最後にオレンジのカードが空いた場所へ入ります。</p>
-  <div class="legend">
-    <span><i class="swatch sorted"></i>順番が整った部分</span>
-    <span><i class="swatch key"></i>今回入れるカード</span>
-    <span><i class="swatch compare"></i>比較中</span>
-    <span><i class="swatch move"></i>移動するカード</span>
-  </div>
-  <div id="board" class="board" aria-label="並べ替え中のカード"></div>
-  <div id="keyTray" class="floating-key hidden">
-    <strong>一時置き場（取り出したカード）</strong>
-    <div id="keyCard"></div>
-    <span id="keyHint">このカードを入れる場所を探します。</span>
-  </div>
-  <div class="status" aria-live="polite">
-    <div id="phase" class="phase">準備</div>
-    <p id="message">「次へ」を押して始めよう。</p>
-  </div>
-  <div class="controls">
-    <button id="reset">最初から</button>
-    <button id="prev">← 前へ</button>
-    <button id="next" class="primary">次へ →</button>
-    <button id="play">▶ 自動再生</button>
-    <button id="shuffle">数字を入れ替える</button>
-    <label class="control-label">速度 
-      <select id="speed">
-        <option value="1300">ゆっくり</option>
-        <option value="800" selected>ふつう</option>
-        <option value="400">はやい</option>
-      </select>
-    </label>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-top:14px;color:var(--muted);font-size:.85rem">
-    <span id="stepText">ステップ 0</span>
-    <span id="stepCount">全ステップ 0</span>
-  </div>
-  <div class="track"><div id="progress" class="fill"></div></div>
-  <div class="stats">
-    <div class="stat"><small>比較回数</small><strong id="comparisons">0</strong></div>
-    <div class="stat"><small>右への移動回数</small><strong id="shifts">0</strong></div>
-    <div class="stat"><small>状態</small><strong id="result">準備中</strong></div>
-  </div>
-</section>
-
-<section class="panel">
-  <h2>② トランプゲーム（並び替えて判定しよう）</h2>
-  <p>裏向きのカードを最大2枚までクリックして表にし、「🔄 選択した2枚を入れ替える」で位置をスワップします。確認したらカードを手動で裏に戻すか、「🔍 判定する」で成否をチェックしよう！</p>
-  <div class="note">
-    <strong>ゲームの遊び方とルール</strong>
+  <div>
+    <h2>このサイトの使い方</h2>
+    <p>コンピュータサイエンスの基礎である<strong>「ソート（並べ替え）」</strong>の仕組みを、実際のトランプ遊びのような感覚で直感的に理解できる学習サイトです。</p>
     <ol>
-      <li>裏向きのカードから、比べたい2枚を選んで表にします。</li>
-      <li>「🔄 選択した2枚を入れ替える」で位置を入れ替えます。</li>
-      <li>用事が済んだカードは、もう一度クリックして手動で裏に戻すことができます。</li>
-      <li>すべて小さい順に並べ替えられたと思ったら、「🔍 判定する」ボタンを押します。あっていればクリアです！</li>
+      <li><strong>アニメーションで観察：</strong> カードがどのように比較され、移動していくのかをステップごとに確認できます。</li>
+      <li><strong>実際に手を動かす：</strong> ミニゲームで実際にカードを入れ替えて、アルゴリズムの動きを自分の手で体験できます。</li>
+      <li><strong>プログラムを確認：</strong> C、Java、Pythonなど豊富なプログラミング言語のソースコードに対応しています。</li>
     </ol>
   </div>
-  
-  <div id="activityCards" class="activity-cards" aria-label="裏向きの練習カード"></div>
-  
-  <div class="controls">
-    <button id="swapCards">🔄 選択した2枚を入れ替える</button>
-    <button id="judgeGame" class="primary">🔍 判定する</button>
-    <button id="activityReset">カードをシャッフルしてやり直す</button>
-    <button id="activityHint">ヒントを見る</button>
-  </div>
-  <div id="activityStatus" class="activity-status" aria-live="polite">カードを2枚選んで入れ替え、判定ボタンを押してみよう。</div>
-</section>
-
-<section class="panel">
-  <h2>プログラムではどう書く？</h2>
-  <div style="margin-bottom: 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-    <label for="langSelect" style="font-weight:700;">言語を選択:</label>
-    <select id="langSelect">
-      <option value="c">C</option>
-      <option value="cpp">C++</option>
-      <option value="csharp">C#</option>
-      <option value="java" selected>Java</option>
-      <option value="python">Python</option>
-      <option value="javascript">JavaScript</option>
-      <option value="typescript">TypeScript</option>
-      <option value="go">Go</option>
-      <option value="rust">Rust</option>
-      <option value="ruby">Ruby</option>
-    </select>
-  </div>
-  <div class="split">
-    <div>
-      <p>日本語にすると、こんな手順だよ。</p>
-      <ol>
-        <li>左から順に入れる数字を選ぶ。</li>
-        <li>その左側を右から調べる。</li>
-        <li>選んだ数字より大きければ、右へずらす。</li>
-        <li>空いた場所に選んだ数字を入れる。</li>
-      </ol>
-      <p><strong>ポイント：</strong> プルダウンから好きなプログラミング言語を選ぶと、それぞれの文法での書き方を確認できます。</p>
-    </div>
-    <div>
-      <pre id="codeDisplay" class="code"></pre>
-    </div>
+  <div class="note">
+    <h3>🃏 なぜトランプなの？</h3>
+    <p>私たちが普段トランプを並べ替えるとき無意識に行っている手順には、コンピュータ科学の美しい効率的なアルゴリズムが詰まっています。</p>
+    <p>難解な数式を使わず、視覚と直感からプログラミングの基礎ロジックを学べます！</p>
   </div>
 </section>
 
+<!-- 10種のアルゴリズム選択セクション -->
 <section class="panel">
-  <h2>ミニクイズ</h2>
-  <p>左側が <strong>2、5、8</strong> の順に整っていて、次に入れる数字が <strong>4</strong> です。どうしますか？</p>
-  <div class="quiz-options">
-    <button data-a="a">2と5を右へずらし、先頭に4を入れる</button>
-    <button data-a="b">5と8を右へずらし、空いたスペースに4を入れる</button>
-    <button data-a="c">何もずらさず、8の右に4を入れる</button>
+  <h2>10種のソートアルゴリズム一覧</h2>
+  <p class="muted">順次実装・公開予定です。現在「挿入ソート」が体験できます。</p>
+  
+  <div class="algo-grid">
+    <!-- 1. 挿入ソート (公開中) -->
+    <div class="algo-card" style="border-color:#2563eb;background:#f8fafc;">
+      <div>
+        <h3>1. 挿入ソート (Insertion Sort)</h3>
+        <p>手札に新しいカードを1枚ずつ正しい位置に差し込んでいく、直感的な並べ替え。</p>
+      </div>
+      <a href="./algorythmn/insertion.html" class="btn primary">挿入ソートを学ぶ →</a>
+    </div>
+
+    <!-- 2. バブルソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>2. バブルソート (Bubble Sort)</h3>
+        <p>隣同士の大小を比較して交換を繰り返す、最も有名な定番アルゴリズム。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 3. 選択ソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>3. 選択ソート (Selection Sort)</h3>
+        <p>残りのカードから一番小さい（または大きい）カードを探して先頭と入れ替える。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 4. クイックソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>4. クイックソート (Quick Sort)</h3>
+        <p>基準値を決めて、それより小さいグループと大きいグループに高速に分割する。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 5. マージソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>5. マージソート (Merge Sort)</h3>
+        <p>一度バラバラに分割してから、綺麗に整列させながら再び統合していく手法。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 6. シェルソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>6. シェルソート (Shell Sort)</h3>
+        <p>一定間隔ごとに離れた要素をグループ化して挿入ソートを行い、効率を高める。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 7. ヒープソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>7. ヒープソート (Heap Sort)</h3>
+        <p>木構造（ヒープ）の性質を利用して最大値・最小値を効率よく取り出す。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 8. 基数ソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>8. 基数ソート (Radix Sort)</h3>
+        <p>一の位、十の位…と桁ごとにバケツ（グループ）分けを繰り返して並べ替える。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 9. バケットソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>9. バケットソート (Bucket Sort)</h3>
+        <p>値の範囲に応じた複数の「バケツ」に振り分け、それぞれの内部を整列する。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
+
+    <!-- 10. ボゴソート (Coming Soon) -->
+    <div class="algo-card">
+      <div>
+        <h3>10. ボゴソート (Bogo Sort)</h3>
+        <p>カードをランダムに投げ直して、偶然揃うのを祈る究極の非効率ジョークソート。</p>
+      </div>
+      <a class="btn disabled">Coming Soon...</a>
+    </div>
   </div>
-  <div id="feedback" class="feedback" aria-live="polite"></div>
 </section>
+
+<!-- ニュースセクション -->
+<section class="panel">
+  <h2>News / 更新情報</h2>
+  <div class="note" style="background:#fff; border-color:var(--line);">
+    <div class="news-item">
+      <span class="news-date">2026.11.09 18:00</span>
+      <span><a href="./algorythmn/insertion.html" style="color:var(--blue); font-weight:700; text-decoration:none;">「挿入ソート」の解説・アニメーション・ゲーム機能を公開しました！</a></span>
+    </div>
+    <div class="news-item">
+      <span class="news-date">2026.11.09 12:00</span>
+      <span class="muted">「トランプで学ぶ！並べ替え」Webサイトを公開しました。</span>
+    </div>
+  </div>
+</section>
+
 </main>
+
 <footer>©kazedaruma</footer>
 
-<script>
-(() => {
-const suits=['♠','♥','♣','♦'];
-let original=[7,3,6,2,8,4], events=[], step=0, timer=null;
-const $=id=>document.getElementById(id);
-
-function makeEvents(vals){
- const a=[...vals], out=[];
- const add=(phase,message,opts={})=>out.push({a:[...a],phase,message,...opts});
- add('準備','左端の1枚は、すでに順番が整っていると考えます。次のカードを取り出します。',{sortedUntil:0});
- for(let i=1;i<a.length;i++){
-  const key=a[i]; let j=i-1;
-  a[i]=null;
-  add('取り出す',`カード「${key}」を一時置き場に取り出しました。左側の整った列に入る場所を探します。`,{key,sortedUntil:i-1,empty:i});
-  while(j>=0){
-   add('比べる',`${a[j]} と ${key} を比べます。${a[j]>key?`${a[j]} の方が大きいので、右へずらします。`:`${a[j]} は ${key} 以下です。ここが挿入位置になります。`}`,{key,compare:j,empty:i,sortedUntil:i-1});
-   if(a[j]>key){
-    a[j+1]=a[j]; a[j]=null;
-    add('右へずらす',`${a[j+1]} を1つ右へ移動しました。カードが実際に動く様子を見て、次の左隣を調べます。`,{key,move:j+1,empty:j,sortedUntil:i-1});
-    j--;
-   }else break;
-  }
-  a[j+1]=key;
-  add('挿入',`${key} を左から ${j+2} 番目に入れました。ここまでの ${i+1} 枚が小さい順になりました。`,{inserted:j+1,sortedUntil:i});
- }
- add('完成！',`完成！ 小さい順は ${a.join('、')} です。`,{sortedUntil:a.length-1,done:true});
- return out;
-}
-
-function cardMarkup(n, cls=''){
- if(n===null||n===undefined) return `<div class="playing-card ghost ${cls}"></div>`;
- const suit=suits[(n-1)%4], red=(suit==='♥'||suit==='♦')?'red':'black';
- return `<div class="playing-card ${cls}"><div class="card-top ${red}">${n}<br>${suit}</div><div class="card-center ${red}">${suit}</div><div class="card-bottom ${red}">${suit}</div></div>`;
-}
-
-function stop(){if(timer)clearInterval(timer);timer=null;$('play').textContent='▶ 自動再生';}
-function build(){events=makeEvents(original);step=0;render();}
-function render(){
- const e=events[step], board=$('board'); board.innerHTML='';
- e.a.forEach((n,i)=>{
-  let cls='';
-  if(i<=e.sortedUntil)cls='sorted';
-  if(i===e.compare)cls='compare';
-  if(i===e.move)cls='move';
-  if(i===e.inserted)cls='sorted inserted';
-  const slot=document.createElement('div');slot.className='slot';
-  const label=document.createElement('div');label.className='label';
-  label.textContent=i===e.key?'取り出し中':i===e.compare?'比較中':i===e.move?'右へ移動':i===e.inserted?'挿入！':'';
-  const holder=document.createElement('div');holder.innerHTML=cardMarkup(n,cls);
-  const idx=document.createElement('div');idx.className='idx';idx.textContent=`${i+1}番目`;
-  slot.append(label,holder.firstElementChild,idx);board.append(slot);
- });
- const tray=$('keyTray');
- if(e.key!==undefined && !e.done && e.phase!=='挿入'){
-  tray.classList.remove('hidden');
-  $('keyCard').innerHTML=cardMarkup(e.key,'key');$('keyHint').textContent=e.phase==='挿入'?'挿入できました！次のカードへ進みます。':'配列の外に取り出して保持中。ここにあるカードは、まだ列に戻っていません。';
- } else tray.classList.add('hidden');
- $('phase').textContent=e.phase;$('message').textContent=e.message;
- $('stepText').textContent=`ステップ ${step}`;$('stepCount').textContent=`全ステップ ${events.length-1}`;
- $('progress').style.width=`${step/(events.length-1)*100}%`;
- $('prev').disabled=step===0;$('next').disabled=step===events.length-1;
- $('comparisons').textContent=events.slice(0,step+1).filter(x=>x.phase==='比べる').length;
- $('shifts').textContent=events.slice(0,step+1).filter(x=>x.phase==='右へずらす').length;
- $('result').textContent=e.done?'完成！':step===0?'準備中':'処理中';
- if(e.done)stop();
-}
-
-$('reset').onclick=()=>{stop();build()};
-$('prev').onclick=()=>{stop();if(step>0)step--;render()};$('next').onclick=()=>{if(step<events.length-1){step++;render()}};
-$('play').onclick=()=>{if(timer){stop();return}if(step>=events.length-1)step=0;$('play').textContent='⏸ 一時停止';timer=setInterval(()=>{if(step>=events.length-1){stop();return}step++;render()},Number($('speed').value))};$('speed').onchange=()=>{if(timer){stop();$('play').click()}};$('shuffle').onclick=()=>{stop();let v=[1,2,3,4,5,6,7,8,9];for(let i=v.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[v[i],v[j]]=[v[j],v[i]]}original=v.slice(0,6);build()};
-document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{$('feedback').className='feedback '+(b.dataset.a==='b'?'good':'bad');$('feedback').textContent=b.dataset.a==='b'?'正解！5と8を右へずらすと5の位置が空き、そこに4を入れます。':'4は2より大きく、5と8より小さいよ。右から順に比べてみよう。'});
-
-// ==========================================
-// 10言語のプログラムデータ
-// ==========================================
-const codeSnippets = {
-  c: `void insertionSort(int arr[], int n) {
-    for (int i = 1; i < n; i++) {
-        int key = arr[i];
-        int j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  cpp: `void insertionSort(std::vector<int>& arr) {
-    int n = arr.size();
-    for (int i = 1; i < n; i++) {
-        int key = arr[i];
-        int j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  csharp: `public void InsertionSort(int[] arr) {
-    for (int i = 1; i < arr.Length; i++) {
-        int key = arr[i];
-        int j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  java: `public void insertionSort(int[] arr) {
-    for (int i = 1; i < arr.length; i++) {
-        int key = arr[i];
-        int j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  python: `def insertion_sort(arr):
-    for i in range(1, len(arr)):
-        key = arr[i]
-        j = i - 1
-        while j >= 0 and arr[j] > key:
-            arr[j + 1] = arr[j]
-            j -= 1
-        arr[j + 1] = key`,
-  javascript: `function insertionSort(arr) {
-    for (let i = 1; i < arr.length; i++) {
-        let key = arr[i];
-        let j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  typescript: `function insertionSort(arr: number[]): void {
-    for (let i = 1; i < arr.length; i++) {
-        let key = arr[i];
-        let j = i - 1;
-        while (j >= 0 && arr[j] > key) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}`,
-  go: `func insertionSort(arr []int) {
-    for i := 1; i < len(arr); i++ {
-        key := arr[i]
-        j := i - 1
-        for j >= 0 && arr[j] > key {
-            arr[j + 1] = arr[j]
-            j--
-        }
-        arr[j + 1] = key
-    }
-}`,
-  rust: `fn insertion_sort(arr: &mut [i32]) {
-    for i in 1..arr.len() {
-        let key = arr[i];
-        let mut j = i as isize - 1;
-        while j >= 0 && arr[j as usize] > key {
-            arr[(j + 1) as usize] = arr[j as usize];
-            j -= 1;
-        }
-        arr[(j + 1) as usize] = key;
-    }
-}`,
-  ruby: `def insertion_sort(arr)
-  (1...arr.length).each do |i|
-    key = arr[i]
-    j = i - 1
-    while j >= 0 && arr[j] > key
-      arr[j + 1] = arr[j]
-      j -= 1
-    end
-    arr[j + 1] = key
-  end
-  arr
-end`
-};
-
-// プルダウン変更時のイベント
-const langSelect = $('langSelect');
-const codeDisplay = $('codeDisplay');
-
-function updateCodeView() {
-  const selectedLang = langSelect.value;
-  codeDisplay.textContent = codeSnippets[selectedLang] || '';
-}
-
-langSelect.onchange = updateCodeView;
-updateCodeView(); // 初期表示
-
-// ==========================================
-// トランプゲーム（アクティビティ）の実装
-// ==========================================
-let activityValues=[5,2,6,1,4,3], revealed=[], activityOrder=[...activityValues], isGameCleared=false;
-
-function renderActivity(){
- const root=$('activityCards');
- root.innerHTML='';
- activityOrder.forEach((n,i)=>{
-  const slot=document.createElement('div');
-  slot.className='activity-slot'+(revealed.includes(i)?' selected':'');
-  
-  const isRev = isGameCleared || revealed.includes(i);
-  slot.innerHTML = cardMarkup(n, isRev ? '' : 'back') + `<small>${i+1}番目</small>`;
-  
-  slot.onclick = () => {
-   if(isGameCleared) return;
-   toggleCard(i);
-  };
-  root.append(slot);
- });
-}
-
-function toggleCard(i){
- const idxInRevealed = revealed.indexOf(i);
- if(idxInRevealed !== -1){
-  revealed.splice(idxInRevealed, 1);
-  $('activityStatus').textContent = `カードを裏返しました。表向きのカードは ${revealed.length} 枚です。`;
- } else {
-  if(revealed.length >= 2){
-   revealed.shift();
-  }
-  revealed.push(i);
-  $('activityStatus').textContent = `表向きは ${revealed.length} 枚です。入れ替える2枚を選んだら「入れ替える」を押そう。`;
- }
- renderActivity();
-}
-
-$('swapCards').onclick = () => {
- if(isGameCleared) return;
- if(revealed.length !== 2){
-  $('activityStatus').textContent = '⚠️ 入れ替えるには、必ずちょうど2枚のカードを表にしてください。';
-  return;
- }
- const [idx1, idx2] = revealed;
- const temp = activityOrder[idx1];
- activityOrder[idx1] = activityOrder[idx2];
- activityOrder[idx2] = temp;
-
- renderActivity();
- $('activityStatus').textContent = `✨ ${idx1+1}番目と ${idx2+1}番目のカードを入れ替えました！（カードをクリックして手動で裏に戻せます）`;
-};
-
-$('judgeGame').onclick = () => {
- const isSorted = activityOrder.every((val, i, arr) => i === 0 || arr[i - 1] <= val);
- if(isSorted){
-  isGameCleared = true;
-  renderActivity();
-  $('activityStatus').innerHTML = `🎉 <span class="good">正解！</span> すべて小さい順に並んでいます！クリアおめでとう！`;
- } else {
-  $('activityStatus').innerHTML = `❌ <span class="bad">残念！</span> まだ正しい順番になっていません。もう一度入れ替えてみよう。`;
- }
-};
-
-$('activityReset').onclick = () => {
- isGameCleared = false;
- revealed = [];
- let v = [1,2,3,4,5,6,7,8,9];
- for(let i = v.length - 1; i > 0; i--){
-  let j = Math.floor(Math.random() * (i + 1));
-  [v[i], v[j]] = [v[j], v[i]];
- }
- activityOrder = v.slice(0, 6);
- renderActivity();
- $('activityStatus').textContent = 'カードを新しくシャッフルして裏返しました。2枚選んで入れ替え、判定してみよう！';
-};
-
-$('activityHint').onclick = () => {$('activityStatus').textContent = 'ヒント：隣り合うカードを比べて、左側が大きいときは2枚選んで入れ替えよう。見終わったらカードをクリックして手動で裏に戻そう！';
-};
-
-renderActivity();
-build();
-})();
-</script>
 </body>
 </html>
