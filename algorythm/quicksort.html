@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トランプで学ぶ！並べ替え（クイックソート編）</title>
+<style>
+:root{--ink:#1e293b;--muted:#64748b;--paper:#f4f8fc;--line:#d7e2ef;--blue:#2563eb;--green:#15803d;--orange:#c2410c;--purple:#7e22ce}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.65}
+header{background:linear-gradient(120deg,#172554,#1d4ed8);color:white;padding:25px 18px}.wrap{width:min(1100px,calc(100% - 28px));margin:auto}h1{font-size:clamp(1.7rem,4vw,2.5rem);margin:0 0 4px}header p{margin:0;color:#dbeafe}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:clamp(15px,2.5vw,24px);margin:18px 0;box-shadow:0 5px 18px #0f172a08}h2{font-size:1.25rem;margin:0 0 8px}h3{font-size:1rem;margin:0 0 6px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px}.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:.85rem;color:var(--muted);margin:8px 0}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:13px;height:13px;border-radius:4px;display:inline-block}.swatch.sorted{background:#dcfce7}.swatch.key{background:#ffedd5}.swatch.compare{background:#f3e8ff}.swatch.move{background:#dbeafe}
+
+.board{display:flex;justify-content:center;align-items:flex-end;gap:clamp(6px,1.2vw,14px);min-height:180px;padding:28px 5px 10px;border-bottom:2px solid #cbd5e1;overflow:hidden}
+.slot{width:74px;position:relative;text-align:center;flex-shrink:0}
+
+/* ==========================================
+   トランプカードの原形・サイズ完全固定（共通スタイル）
+   ========================================== */
+.playing-card{
+  height:110px !important;
+  width:72px !important;
+  min-width:72px !important;
+  max-width:72px !important;
+  border:2px solid #cbd5e1;
+  border-radius:9px;
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:6px;
+  position:relative;
+  box-shadow:0 3px 5px #0f172a12;
+  transition:transform .3s ease, background .25s, border-color .25s;
+  backface-visibility:hidden;
+  flex-shrink:0;
+  margin:0 auto;
+}
+.card-top{align-self:flex-start;font-weight:900;font-size:1rem;line-height:1.05}
+.card-bottom{align-self:flex-end;font-size:1.5rem;line-height:1}
+.red{color:#dc2626}
+.black{color:#172033}
+.card-center{font-size:2rem;line-height:1;text-align:center}
+
+.playing-card.back{
+  background:repeating-linear-gradient(45deg,#c72b39 0 4px,#fce7e9 4px 6px,#c72b39 6px 10px) !important;
+  border:4px double white !important;
+  outline:1px solid #b91c1c;
+}
+.playing-card.back .card-top, 
+.playing-card.back .card-center, 
+.playing-card.back .card-bottom{visibility:hidden !important}
+
+.playing-card.key{background:#ffedd5;border-color:#fb923c;box-shadow:0 0 0 3px #fed7aa;transform:translateY(-9px)}
+.playing-card.compare{background:#f3e8ff;border-color:#c084fc;box-shadow:0 0 0 2px #e9d5ff}
+.playing-card.move{background:#dbeafe;border-color:#60a5fa}
+.playing-card.sorted{background:#dcfce7;border-color:#86efac}
+.playing-card.ghost{opacity:.22;border-style:dashed}
+
+.slot .idx{font-size:.72rem;color:var(--muted);margin-top:6px}
+.slot .label{position:absolute;top:-24px;width:100%;font-size:.7rem;font-weight:800;white-space:nowrap}
+
+.floating-key{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px;margin-top:12px}
+.floating-key.hidden{display:none}
+
+.status{margin-top:14px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-height:78px}
+.phase{color:var(--blue);font-weight:800;font-size:.8rem}
+.status p{margin:2px 0}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+button,select{font:inherit;border:1px solid #cbd5e1;border-radius:9px;padding:9px 13px;background:white;color:var(--ink)}
+button{font-weight:750;cursor:pointer}
+button:hover{background:#eff6ff}
+button.primary{background:var(--blue);color:white;border-color:var(--blue)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.control-label{margin-left:auto;font-size:.88rem;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px}
+.stat small{display:block;color:var(--muted)}
+.stat strong{font-size:1.3rem}
+.track{height:7px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:6px}
+.fill{height:100%;background:var(--blue);width:0;transition:width .2s}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.code{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font: .9rem/1.8 ui-monospace,Consolas,monospace;overflow:auto;white-space:pre}
+
+.activity-cards{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:16px 0}
+.activity-slot{width:80px;text-align:center;cursor:pointer;user-select:none}
+.activity-slot small{color:var(--muted);display:block;margin-top:4px}
+.activity-slot.selected .playing-card{box-shadow:0 0 0 4px #2563eb;transform:translateY(-6px)}
+.activity-status{background:#f8fafc;border-radius:10px;padding:12px;min-height:54px;margin-top:8px}
+
+.quiz-options{display:flex;flex-wrap:wrap;gap:8px}
+.quiz-options button{flex:1 1 210px;text-align:left}
+.feedback{min-height:26px;font-weight:700;margin-top:8px}
+.good{color:var(--green)}
+.bad{color:#b91c1c}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding:0 12px 24px}
+
+@media(max-width:720px){
+  .wrap{width:calc(100% - 20px)}
+  header{padding:20px 10px}
+  .grid,.split{grid-template-columns:1fr}
+  .panel{padding:14px;margin:12px 0;border-radius:13px}
+  .stats{gap:5px}.stat{padding:7px;min-width:0}
+  .stat strong{font-size:1.05rem}
+  .board{width:100%;min-height:0;gap:clamp(2px,1vw,7px);padding:25px 2px 8px;overflow:visible}
+  .slot{width:auto;min-width:0;flex:1 1 0}
+  .playing-card{width:100% !important;min-width:0 !important;max-width:72px !important;height:auto !important;aspect-ratio:72 / 110;padding:clamp(2px,1vw,6px);border-width:1.5px;border-radius:7px}
+  .card-top{font-size:clamp(.58rem,2.5vw,1rem)}
+  .card-bottom{font-size:clamp(.8rem,4vw,1.5rem)}
+  .card-center{font-size:clamp(1rem,5.5vw,2rem)}
+  .slot .idx{font-size:clamp(.55rem,2.2vw,.72rem);white-space:nowrap}
+  .slot .label{font-size:clamp(.48rem,1.9vw,.7rem);top:-21px;white-space:normal;line-height:1.15;overflow-wrap:anywhere}
+  .floating-key{gap:8px;padding:9px;font-size:.9rem}
+  .floating-key .playing-card{width:58px !important;height:auto !important}
+  .controls{gap:7px}
+  .controls button{flex:1 1 auto;min-width:0;padding:8px 9px;font-size:.88rem}
+  .control-label{margin-left:0;display:flex;align-items:center;gap:6px}
+  button,select{max-width:100%}
+  .activity-cards{gap:8px;padding:12px 0}
+  .activity-slot{width:clamp(48px,13vw,80px)}
+  .activity-slot .playing-card{width:100% !important}
+  .code{max-width:100%;font-size:.78rem;overflow-x:auto}
+  .quiz-options button{flex:1 1 100%}
+}
+.home-link {
+  display: inline-block;
+  padding: 10px 16px;
+  margin: 10px 0;
+  color: #333;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+}
+.home-link:hover { background-color: #ddd; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div style="font-size:.8rem;letter-spacing:.12em;font-weight:800"> 情報 · 高校生向け</div>
+    <h1>トランプで学ぶ！並べ替え（クイックソート編）</h1>
+    <p>「クイックソート」をピボットの選び方を変えて学んでみよう．</p>
+  </div>
+</header>
+<a href="../index.html" class="home-link">← ソート一覧へ戻る</a>
+
+<section class="panel grid">
+<div>
+  <h2>クイックソートって何？</h2>
+  <p>基準となるカード（ピボット）を1枚選び、それより「小さいカードのグループ」と「大きいカードのグループ」に左右へ仕分けます。ピボットの選び方によってアルゴリズムの動きが少し異なります。</p>
+  <ol>
+    <li>基準となるカード（ピボット）を1枚決める。</li>
+    <li>ピボットより小さいカードを左へ、大きいカードを右へ集める。</li>
+    <li>左右に分かれたグループそれぞれで、同じ作業を再帰的に繰り返す。</li>
+    <li>全体が綺麗に整列する！</li>
+  </ol>
+</div>
+<div class="note">
+  <h3>🃏 ピボット選択のバリエーション</h3>
+  <p><strong>① 中央の値を選ぶ方式：</strong> 真ん中の位置にあるカードを基準にすることで、バランスよく左右に分けやすくなります。</p>
+  <p><strong>② 右端の値を選ぶ方式（Lomuto法）：</strong> 一番右のカードを基準にして、左からスキャンしながら小さめのカードを左側に押し出していく代表的な手法です。</p>
+</div>
+</section>
+
+<section class="panel">
+  <h2>① アニメーションで動きを観察</h2>
+  <p class="muted">ピボットの選び方を選んで「次へ」を押すと、詳細な比較や入れ替えの全プロセスを観察できます。</p>
+  
+  <div style="margin-bottom: 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <label for="pivotSelect" style="font-weight:700;">ピボットの選び方:</label>
+    <select id="pivotSelect">
+      <option value="center" selected>中央の値をピボットにする</option>
+      <option value="right">右端の値をピボットにする (Lomuto法)</option>
+    </select>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch sorted"></i>位置が確定した部分</span>
+    <span><i class="swatch key"></i>基準（ピボット）</span>
+    <span><i class="swatch compare"></i>比較中</span>
+    <span><i class="swatch move"></i>入れ替え（スワップ）</span>
+  </div>
+  <div id="board" class="board" aria-label="並べ替え中のカード"></div>
+  <div id="keyTray" class="floating-key hidden">
+    <strong>基準カード（ピボット）</strong>
+    <div id="keyCard"></div>
+    <span id="keyHint">このカードを基準に左右へ振り分けます。</span>
+  </div>
+  <div class="status" aria-live="polite">
+    <div id="phase" class="phase">準備</div>
+    <p id="message">「次へ」を押して始めよう。</p>
+  </div>
+  <div class="controls">
+    <button id="reset">最初から</button>
+    <button id="prev">← 前へ</button>
+    <button id="next" class="primary">次へ →</button>
+    <button id="play">▶ 自動再生</button>
+    <button id="shuffle">数字を入れ替える</button>
+    <label class="control-label">速度 
+      <select id="speed">
+        <option value="1300">ゆっくり</option>
+        <option value="800" selected>ふつう</option>
+        <option value="400">はやい</option>
+      </select>
+    </label>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:14px;color:var(--muted);font-size:.85rem">
+    <span id="stepText">ステップ 0</span>
+    <span id="stepCount">全ステップ 0</span>
+  </div>
+  <div class="track"><div id="progress" class="fill"></div></div>
+  <div class="stats">
+    <div class="stat"><small>比較回数</small><strong id="comparisons">0</strong></div>
+    <div class="stat"><small>入れ替え回数</small><strong id="shifts">0</strong></div>
+    <div class="stat"><small>状態</small><strong id="result">準備中</strong></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>②トランプゲーム（並び替えて判定しよう）</h2>
+  <p>裏向きのカードを最大2枚までクリックして表にし、「🔄 選択した2枚を入れ替える」で位置をスワップします。確認したらカードを手動で裏に戻すか、「🔍 判定する」で成否をチェックしよう！</p>
+  <div class="note">
+    <strong>ゲームの遊び方とルール</strong>
+    <ol>
+      <li>裏向きのカードから、比べたい2枚を選んで表にします。</li>
+      <li>「🔄 選択した2枚を入れ替える」で位置を入れ替えます。</li>
+      <li>用事が済んだカードは、もう一度クリックして手動で裏に戻すことができます。</li>
+      <li>すべて小さい順に並べ替えられたと思ったら、「🔍 判定する」ボタンを押します。あっていればクリアです！</li>
+    </ol>
+  </div>
+  
+  <div id="activityCards" class="activity-cards" aria-label="裏向きの練習カード"></div>
+  
+  <div class="controls">
+    <button id="swapCards">🔄 選択した2枚を入れ替える</button>
+    <button id="judgeGame" class="primary">🔍 判定する</button>
+    <button id="activityReset">カードをシャッフルしてやり直す</button>
+    <button id="activityHint">ヒントを見る</button>
+  </div>
+  <div id="activityStatus" class="activity-status" aria-live="polite">カードを2枚選んで入れ替え、判定ボタンを押してみよう。</div>
+</section>
+
+<section class="panel">
+  <h2>プログラムではどう書く？</h2>
+  <div style="margin-bottom: 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <label for="langSelect" style="font-weight:700;">言語を選択:</label>
+    <select id="langSelect">
+      <option value="c">C</option>
+      <option value="cpp">C++</option>
+      <option value="csharp">C#</option>
+      <option value="java" selected>Java</option>
+      <option value="python">Python</option>
+      <option value="javascript">JavaScript</option>
+      <option value="typescript">TypeScript</option>
+      <option value="go">Go</option>
+      <option value="rust">Rust</option>
+      <option value="ruby">Ruby</option>
+    </select>
+  </div>
+  <div class="split">
+    <div>
+      <p>クイックソートをプログラムで表す手順：</p>
+      <ol>
+        <li>配列から基準値（ピボット）を選ぶ（中央値や右端など）。</li>
+        <li>ピボットを基準に、左右から要素を比較して大小で入れ替える（パーティション）。</li>
+        <li>分割された左右のグループに対して、同じ関数を再帰的に呼び出す。</li>
+      </ol>
+      <p><strong>ポイント：</strong> プルダウンから好きなプログラミング言語を選ぶと、それぞれの文法での書き方を確認できます。</p>
+    </div>
+    <div>
+      <pre id="codeDisplay" class="code"></pre>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>ミニクイズ</h2>
+  <p>基準値（ピボット）として選んだ数字が <strong>5</strong> です。これより小さいグループと大きいグループに分けるとき、左側に配置すべきなのは次のうちどれですか？</p>
+  <div class="quiz-options">
+    <button data-a="a">5より大きい数字（例: 7, 8）</button>
+    <button data-a="b">5より小さい数字（例: 2, 3）</button>
+    <button data-a="c">すべての数字をランダムに配置する</button>
+  </div>
+  <div id="feedback" class="feedback" aria-live="polite"></div>
+</section>
+</main>
+<footer>©kazedaruma</footer>
+
+<script>
+(() => {
+const suits=['♠','♥','♣','♦'];
+let original=[7,3,6,2,8,4], events=[], step=0, timer=null;
+const $=id=>document.getElementById(id);
+
+// 2種類のピボット選択に対応した詳細イベント生成関数
+function makeDetailedQuickSortEvents(vals, pivotType) {
+ const out = [];
+ const arr = [...vals];
+ 
+ out.push({
+  a: [...arr], 
+  phase: '準備', 
+  message: `クイックソートを開始します（ピボット選択方式: ${pivotType === 'center' ? '中央の値' : '右端の値'}）。`
+ });
+
+ let compCount = 0;
+ let swapCount = 0;
+
+ function sort(low, high) {
+  if (low < high) {
+   let pi = partition(low, high);
+   sort(low, pi - 1);
+   sort(pi + 1, high);
+  }
+ }
+
+ function partition(low, high) {
+  let pivotIdx;
+  if (pivotType === 'center') {
+   pivotIdx = Math.floor((low + high) / 2);
+  } else {
+   pivotIdx = high;
+  }
+  let pivotVal = arr[pivotIdx];
+
+  out.push({
+   a: [...arr],
+   phase: 'ピボット選択',
+   message: `${low+1}番目〜${high+1}番目の範囲から、${pivotIdx+1}番目のカード「${pivotVal}」をピボット（基準）に選びました。`,
+   key: pivotIdx
+  });
+
+  if (pivotType === 'center') {
+   // 中央値を一時的に右端に退避させる Lomuto風の分かりやすい表現
+   let temp = arr[pivotIdx]; arr[pivotIdx] = arr[high]; arr[high] = temp;
+   out.push({
+    a: [...arr],
+    phase: 'ピボット移動',
+    message: `選びやすくするために、ピボット「${pivotVal}」を一時的に右端に移動させます。`,
+    key: high
+   });
+   pivotIdx = high;
+   pivotVal = arr[high];
+  }
+
+  let i = low - 1;
+  for (let j = low; j < high; j++) {
+   compCount++;
+   out.push({
+    a: [...arr],
+    phase: '比べる',
+    message: `カード「${arr[j]}」とピボット「${pivotVal}」を比較します。`,
+    compare: j,
+    key: pivotIdx
+   });
+
+   if (arr[j] < pivotVal) {
+    i++;
+    if (i !== j) {
+     swapCount++;
+     let temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+     out.push({
+      a: [...arr],
+      phase: '入れ替え',
+      message: `ピボットより小さいため、${arr[i]} と ${arr[j]} を入れ替えて左側へ集めます。`,
+      move: i,
+      compare: j,
+      key: pivotIdx
+     });
+    }
+   }
+  }
+
+  // ピボットを最終位置に戻す
+  swapCount++;
+  let temp = arr[i + 1]; arr[i + 1] = arr[high]; arr[high] = temp;
+  out.push({
+   a: [...arr],
+   phase: 'ピボット確定',
+   message: `ピボット「${pivotVal}」を正しい中央の仕切り位置（${i+2}番目）に戻しました。`,
+   inserted: i + 1
+  });
+
+  return i + 1;
+ }
+
+ sort(0, arr.length - 1);
+
+ out.push({
+  a: [...arr],
+  phase: '完成！',
+  message: `完成！ 小さい順に綺麗に並び替えられました。（総比較回数: ${compCount}回, 総交換回数: ${swapCount}回）`,
+  done: true,
+  comparisonsCount: compCount,
+  shiftsCount: swapCount
+ });
+
+ return out;
+}
+
+function updateEvents() {
+ const pivotType = $('pivotSelect').value;
+ events = makeDetailedQuickSortEvents(original, pivotType);
+ step = 0;
+ render();
+}
+
+function cardMarkup(n, cls=''){
+ if(n===null||n===undefined) return `<div class="playing-card ghost ${cls}"></div>`;
+ const suit=suits[(n-1)%4], red=(suit==='♥'||suit==='♦')?'red':'black';
+ return `<div class="playing-card ${cls}"><div class="card-top ${red}">${n}<br>${suit}</div><div class="card-center ${red}">${suit}</div><div class="card-bottom ${red}">${suit}</div></div>`;
+}
+
+function stop(){if(timer)clearInterval(timer);timer=null;$('play').textContent='▶ 自動再生';}
+function build(){updateEvents();}
+
+function render(){
+ const e=events[step], board=$('board'); board.innerHTML='';
+ e.a.forEach((n,i)=>{
+  let cls='';
+  if(e.done)cls='sorted';
+  if(i===e.key)cls='key';
+  if(i===e.compare)cls='compare';
+  if(i===e.move)cls='move';
+  if(i===e.inserted)cls='sorted inserted';
+  const slot=document.createElement('div');slot.className='slot';
+  const label=document.createElement('div');label.className='label';
+  label.textContent=i===e.key?'ピボット':i===e.compare?'比較中':i===e.move?'入れ替え':i===e.inserted?'確定！':'';
+  const holder=document.createElement('div');holder.innerHTML=cardMarkup(n,cls);
+  const idx=document.createElement('div');idx.className='idx';idx.textContent=`${i+1}番目`;
+  slot.append(label,holder.firstElementChild,idx);board.append(slot);
+ });
+ 
+ const tray=$('keyTray');
+ if(e.key!==undefined && !e.done){
+  tray.classList.remove('hidden');
+  $('keyCard').innerHTML=cardMarkup(e.a[e.key],'key');
+  $('keyHint').textContent='このカードを基準に大小のグループに分割します。';
+ } else {
+  tray.classList.add('hidden');
+ }
+
+ $('phase').textContent=e.phase;$('message').textContent=e.message;
+ $('stepText').textContent=`ステップ ${step}`;$('stepCount').textContent=`全ステップ ${events.length-1}`;
+ $('progress').style.width=`${step/(events.length-1)*100}%`;
+ $('prev').disabled=step===0;$('next').disabled=step===events.length-1;
+ 
+ // 動的カウントの表示
+ let comp = 0, shift = 0;
+ for(let k=0; k<=step; k++){
+  if(events[k].phase === '比べる') comp++;
+  if(events[k].phase === '入れ替え' || events[k].phase === 'ピボット確定') shift++;
+ }
+ $('comparisons').textContent = comp;
+ $('shifts').textContent = shift;
+ $('result').textContent = e.done ? '完成！' : step === 0 ? '準備中' : '処理中';
+ if(e.done) stop();
+}
+
+$('pivotSelect').onchange = () => { stop(); updateEvents(); };
+$('reset').onclick = () => { stop(); updateEvents(); };
+$('prev').onclick = () => { stop(); if(step>0) step--; render(); };
+$('next').onclick = () => { if(step<events.length-1){ step++; render(); } };
+$('play').onclick = () => {
+ if(timer){ stop(); return; }
+ if(step>=events.length-1) step = 0;
+ $('play').textContent = '⏸ 一時停止';
+ timer = setInterval(() => {
+  if(step>=events.length-1){ stop(); return; }
+  step++;
+  render();
+ }, Number($('speed').value));
+};
+$('speed').onchange = () => { if(timer){ stop(); $('play').click(); } };
+$('shuffle').onclick = () => {
+ stop();
+ let v = [1,2,3,4,5,6,7,8,9];
+ for(let i = v.length - 1; i > 0; i--){
+  let j = Math.floor(Math.random() * (i + 1));
+  [v[i], v[j]] = [v[j], v[i]];
+ }
+ original = v.slice(0, 6);
+ updateEvents();
+};
+
+document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+ $('feedback').className = 'feedback ' + (b.dataset.a === 'b' ? 'good' : 'bad');
+ $('feedback').textContent = b.dataset.a === 'b' ? '正解！ピボットより小さい数字は左側のグループに配置します。' : 'クイックソートでは、ピボットより小さい数字を左側にまとめます。';
+});
+
+// ==========================================
+// 10言語のクイックソートプログラムデータ
+// ==========================================
+const codeSnippets = {
+  c: `void quickSort(int arr[], int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}`,
+  cpp: `void quickSort(std::vector<int>& arr, int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}`,
+  csharp: `public void QuickSort(int[] arr, int low, int high) {
+    if (low < high) {
+        int pi = Partition(arr, low, high);
+        QuickSort(arr, low, pi - 1);
+        QuickSort(arr, pi + 1, high);
+    }
+}`,
+  java: `public void quickSort(int[] arr, int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}`,
+  python: `def quick_sort(arr, low, high):
+    if low < high:
+        pi = partition(arr, low, high)
+        quick_sort(arr, low, pi - 1)
+        quick_sort(arr, pi + 1, high)`,
+  javascript: `function quickSort(arr, low, high) {
+    if (low < high) {
+        let pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}`,
+  typescript: `function quickSort(arr: number[], low: number, high: number): void {
+    if (low < high) {
+        let pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}`,
+  go: `func quickSort(arr []int, low, high int) {
+    if low < high {
+        pi := partition(arr, low, high)
+        quickSort(arr, low, pi-1)
+        quickSort(arr, pi+1, high)
+    }
+}`,
+  rust: `fn quick_sort(arr: &mut [i32], low: isize, high: isize) {
+    if low < high {
+        let pi = partition(arr, low, high);
+        quick_sort(arr, low, pi - 1);
+        quick_sort(arr, pi + 1, high);
+    }
+}`,
+  ruby: `def quick_sort(arr, low, high)
+  if low < high
+    pi = partition(arr, low, high)
+    quick_sort(arr, low, pi - 1)
+    quick_sort(arr, pi + 1, high)
+  end
+end`
+};
+
+const langSelect = $('langSelect');
+const codeDisplay = $('codeDisplay');
+
+function updateCodeView() {
+  const selectedLang = langSelect.value;
+  codeDisplay.textContent = codeSnippets[selectedLang] || '';
+}
+
+langSelect.onchange = updateCodeView;
+updateCodeView();
+
+// ==========================================
+// トランプゲーム（アクティビティ）の実装
+// ==========================================
+let activityValues = [5,2,6,1,4,3], revealed = [], activityOrder = [...activityValues], isGameCleared = false;
+
+function renderActivity(){
+ const root = $('activityCards');
+ root.innerHTML = '';
+ activityOrder.forEach((n, i) => {
+  const slot = document.createElement('div');
+  slot.className = 'activity-slot' + (revealed.includes(i) ? ' selected' : '');
+  
+  const isRev = isGameCleared || revealed.includes(i);
+  slot.innerHTML = cardMarkup(n, isRev ? '' : 'back') + `<small>${i+1}番目</small>`;
+  
+  slot.onclick = () => {
+   if(isGameCleared) return;
+   toggleCard(i);
+  };
+  root.append(slot);
+ });
+}
+
+function toggleCard(i){
+ const idxInRevealed = revealed.indexOf(i);
+ if(idxInRevealed !== -1){
+  revealed.splice(idxInRevealed, 1);
+  $('activityStatus').textContent = `カードを裏返しました。表向きのカードは ${revealed.length} 枚です。`;
+ } else {
+  if(revealed.length >= 2){
+   revealed.shift();
+  }
+  revealed.push(i);
+  $('activityStatus').textContent = `表向きは ${revealed.length} 枚です。入れ替える2枚を選んだら「入れ替える」を押そう。`;
+ }
+ renderActivity();
+}
+
+$('swapCards').onclick = () => {
+ if(isGameCleared) return;
+ if(revealed.length !== 2){
+  $('activityStatus').textContent = '⚠️ 入れ替えるには、必ずちょうど2枚のカードを表にしてください。';
+  return;
+ }
+ const [idx1, idx2] = revealed;
+ const temp = activityOrder[idx1];
+ activityOrder[idx1] = activityOrder[idx2];
+ activityOrder[idx2] = temp;
+
+ renderActivity();
+ $('activityStatus').textContent = `✨ ${idx1+1}番目と ${idx2+1}番目のカードを入れ替えました！（カードをクリックして手動で裏に戻せます）`;
+};
+
+$('judgeGame').onclick = () => {
+ const isSorted = activityOrder.every((val, i, arr) => i === 0 || arr[i - 1] <= val);
+ if(isSorted){
+  isGameCleared = true;
+  renderActivity();
+  $('activityStatus').innerHTML = `🎉 <span class="good">正解！</span> すべて小さい順に並んでいます！クリアおめでとう！`;
+ } else {
+  $('activityStatus').innerHTML = `❌ <span class="bad">残念！</span> まだ正しい順番になっていません。もう一度入れ替えてみよう。`;
+ }
+};
+
+$('activityReset').onclick = () => {
+ isGameCleared = false;
+ revealed = [];
+ let v = [1,2,3,4,5,6,7,8,9];
+ for(let i = v.length - 1; i > 0; i--){
+  let j = Math.floor(Math.random() * (i + 1));
+  [v[i], v[j]] = [v[j], v[i]];
+ }
+ activityOrder = v.slice(0, 6);
+ renderActivity();
+ $('activityStatus').textContent = 'カードを新しくシャッフルして裏返しました。2枚選んで入れ替え、判定してみよう！';
+};
+
+$('activityHint').onclick = () => {
+ $('activityStatus').textContent = 'ヒント：基準を決めて大小に分けるか、隣り合うカードを比べて小さい順に入れ替えていこう！';
+};
+
+renderActivity();
+updateEvents();
+})();
+</script>
+</body>
+</html>
