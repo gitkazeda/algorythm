@@ -20,6 +20,6 @@
 
 以下のURLにアクセスして、ブラウザ上で直接動かして体験することができます
 
-URL: https://github.com/gitkazeda/algorythmn/
+URL: https://github.com/gitkazeda/algorythm/
 
 GitHubのホスティング環境やブラウザのセキュリティ設定、ネットワーク環境によっては、一時的にブロックされる場合があります。その場合は、ローカル環境にクローンしてブラウザで開くなどしてご活用ください。
